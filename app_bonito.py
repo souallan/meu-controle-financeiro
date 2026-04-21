@@ -27,7 +27,7 @@ st.title("💰 Fluxo de Caixa Pessoal")
 
 aba1, aba2 = st.tabs(["📊 Lançamentos e Análise", "📥 Configurações"])
 
-# Lista de meses com a nova opção de visão geral
+# Lista de meses com a opção de visão geral
 mes_list = ["TODOS OS MESES", "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", 
             "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"]
 
@@ -39,7 +39,6 @@ with aba1:
         st.subheader("➕ Novo Registro")
         with st.form("form_fluxo", clear_on_submit=True):
             tipo_i = st.radio("Tipo", ["Saída", "Entrada"], horizontal=True)
-            # Para lançar, removemos o "TODOS" da lista de seleção
             mes_i = st.selectbox("Mês de Referência", mes_list[1:])
             cat_i = st.text_input("Categoria")
             desc_i = st.text_input("Descrição")
@@ -58,7 +57,6 @@ with aba1:
         st.subheader("🔎 Filtro de Visualização")
         mes_focado = st.selectbox("Escolha o período:", mes_list)
         
-        # Lógica da Query: Se for TODOS, pega tudo. Se não, filtra pelo mês.
         if mes_focado == "TODOS OS MESES":
             query = "SELECT * FROM gastos"
             params = ()
@@ -68,4 +66,13 @@ with aba1:
             
         dados = pd.read_sql_query(query, conn, params=params)
         
-        if not dados.empty
+        # AQUI FOI CORRIGIDO O ERRO (Adicionado o :)
+        if not dados.empty:
+            # Cálculos
+            entradas = dados[dados['tipo'] == 'Entrada']['valor'].sum()
+            saidas = dados[dados['tipo'] == 'Saída']['valor'].sum()
+            saldo = entradas - saidas
+            
+            # Painel de Métricas
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Entradas",
