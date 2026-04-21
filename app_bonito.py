@@ -66,13 +66,19 @@ with aba1:
             
         dados = pd.read_sql_query(query, conn, params=params)
         
-        # AQUI FOI CORRIGIDO O ERRO (Adicionado o :)
         if not dados.empty:
             # Cálculos
             entradas = dados[dados['tipo'] == 'Entrada']['valor'].sum()
             saidas = dados[dados['tipo'] == 'Saída']['valor'].sum()
             saldo = entradas - saidas
             
-            # Painel de Métricas
+            # Painel de Métricas (Revisado para evitar SyntaxError)
             m1, m2, m3 = st.columns(3)
-            m1.metric("Entradas",
+            m1.metric("Entradas", formatar_real(entradas))
+            m2.metric("Saídas", formatar_real(saidas), delta_color="inverse")
+            m3.metric("Saldo Atual", formatar_real(saldo))
+
+            st.divider()
+
+            # --- 1º DETALHES DE LANÇAMENTOS ---
+            st.subheader("📑 Detalhes dos L
