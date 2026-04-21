@@ -27,14 +27,12 @@ st.title("💰 Fluxo de Caixa Pessoal")
 
 aba1, aba2 = st.tabs(["📊 Lançamentos e Análise", "📥 Configurações"])
 
-# Lista de meses com a opção de visão geral
 mes_list = ["TODOS OS MESES", "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", 
             "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"]
 
 with aba1:
     col_form, col_view = st.columns([1, 2.5])
     
-    # --- COLUNA DE LANÇAMENTO ---
     with col_form:
         st.subheader("➕ Novo Registro")
         with st.form("form_fluxo", clear_on_submit=True):
@@ -52,7 +50,6 @@ with aba1:
                     st.success("Registrado!")
                     st.rerun()
 
-    # --- COLUNA DE VISUALIZAÇÃO ---
     with col_view:
         st.subheader("🔎 Filtro de Visualização")
         mes_focado = st.selectbox("Escolha o período:", mes_list)
@@ -67,18 +64,11 @@ with aba1:
         dados = pd.read_sql_query(query, conn, params=params)
         
         if not dados.empty:
-            # Cálculos
             entradas = dados[dados['tipo'] == 'Entrada']['valor'].sum()
             saidas = dados[dados['tipo'] == 'Saída']['valor'].sum()
             saldo = entradas - saidas
             
-            # Painel de Métricas (Revisado para evitar SyntaxError)
+            # Painel de Métricas
             m1, m2, m3 = st.columns(3)
             m1.metric("Entradas", formatar_real(entradas))
-            m2.metric("Saídas", formatar_real(saidas), delta_color="inverse")
-            m3.metric("Saldo Atual", formatar_real(saldo))
-
-            st.divider()
-
-            # --- 1º DETALHES DE LANÇAMENTOS ---
-            st.subheader("📑 Detalhes dos L
+            m2.metric("Saídas", formatar_real(saidas), delta_
