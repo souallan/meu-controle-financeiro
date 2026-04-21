@@ -13,6 +13,11 @@ c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS gastos 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, 
               mes TEXT, categoria TEXT, descricao TEXT, valor REAL, tipo TEXT)''')
+
+try:
+    c.execute("ALTER TABLE gastos ADD COLUMN tipo TEXT DEFAULT 'Saída'")
+except:
+    pass
 conn.commit()
 
 def formatar_real(valor):
@@ -20,13 +25,13 @@ def formatar_real(valor):
 
 st.title("💰 Fluxo de Caixa Pessoal")
 
-aba1, aba2 = st.tabs(["📊 Lançamentos e Gestão", "📥 Configurações"])
+aba1, aba2 = st.tabs(["📊 Lançamentos e Análise", "📥 Configurações"])
 
 mes_list = ["TODOS OS MESES", "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", 
             "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"]
 
 with aba1:
-    col_form, col_view = st.columns([1, 3])
+    col_form, col_view = st.columns([1, 2.8])
     
     with col_form:
         st.subheader("➕ Novo Registro")
@@ -46,57 +51,70 @@ with aba1:
                     st.rerun()
 
     with col_view:
-        st.subheader("🔎 Gestão de Lançamentos")
+        st.subheader("🔎 Visualização")
         mes_focado = st.selectbox("Período exibido:", mes_list)
         
-        # BUSCA DE DADOS
-        query = "SELECT * FROM gastos" if mes_focado == "TODOS OS MESES" else "SELECT * FROM gastos WHERE mes = ?"
-        params = () if mes_focado == "TODOS OS MESES" else (mes_focado,)
-        df = pd.read_sql_query(query, conn, params=params)
+        if mes_focado == "TODOS OS MESES":
+            df = pd.read_sql_query("SELECT * FROM gastos", conn)
+        else:
+            df = pd.read_sql_query("SELECT * FROM gastos WHERE mes = ?", conn, params=(mes_focado,))
         
         if not df.empty:
-            # Painel de Métricas Rápidas
-            total_e = df[df['tipo'] == 'Entrada']['valor'].sum()
-            total_s = df[df['tipo'] == 'Saída']['valor'].sum()
-            st.info(f"**Resumo:** Entradas: {formatar_real(total_e)} | Saídas: {formatar_real(total_s)} | Saldo: {formatar_real(total_e - total_s)}")
+            entradas_df = df[df['tipo'] == 'Entrada'].copy()
+            saidas_df = df[df['tipo'] == 'Saída'].copy()
+            
+            total_e = entradas_df['valor'].sum()
+            total_s = saidas_df['valor'].sum()
+            saldo = total_e - total_s
+            
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Entradas", formatar_real(total_e))
+            m2.metric("Saídas", formatar_real(total_s), delta_color="inverse")
+            m3.metric("Saldo Atual", formatar_real(saldo))
 
-            st.write("---")
-            st.caption("💡 **Dica:** Clique duas vezes em qualquer célula para editar. Selecione a linha e aperte 'Delete' para marcar como excluída.")
+            st.divider()
 
-            # --- EDITOR DE DADOS (A CANETINHA) ---
-            # Configuramos o editor para permitir deletar linhas e editar colunas específicas
-            df_editado = st.data_editor(
-                df,
-                column_config={
-                    "id": None, # Esconde o ID
-                    "tipo": st.column_config.SelectboxColumn("Tipo", options=["Entrada", "Saída"], required=True),
-                    "mes": st.column_config.SelectboxColumn("Mês", options=mes_list[1:], required=True),
-                    "valor": st.column_config.NumberColumn("Valor (R$)", format="%.2f"),
-                },
-                num_rows="dynamic", # Permite excluir linhas
-                use_container_width=True,
-                hide_index=True,
-                key="editor_financeiro"
-            )
+            # --- TABELAS SEPARADAS ---
+            st.write("### 📑 Detalhes dos Lançamentos")
+            col_e, col_s = st.columns(2)
+            
+            # Define colunas para exibir
+            cols_to_show = ['mes', 'categoria', 'descricao', 'valor'] if mes_focado == "TODOS OS MESES" else ['categoria', 'descricao', 'valor']
 
-            # Botão para salvar alterações (Streamlit detecta mudanças no st.session_state)
-            if st.button("💾 Salvar Alterações na Tabela"):
-                # Para simplificar e garantir que não haja erro de sincronia:
-                # 1. Deletamos os IDs que estavam no período filtrado
-                ids_originais = df['id'].tolist()
-                placeholder = ', '.join(['?'] * len(ids_originais))
-                c.execute(f"DELETE FROM gastos WHERE id IN ({placeholder})", ids_originais)
-                
-                # 2. Inserimos os dados que sobraram no editor
-                for _, row in df_editado.iterrows():
-                    c.execute("INSERT INTO gastos (mes, categoria, descricao, valor, tipo) VALUES (?, ?, ?, ?, ?)",
-                              (row['mes'], row['categoria'], row['descricao'], row['valor'], row['tipo']))
-                
-                conn.commit()
-                st.success("✅ Banco de dados atualizado com sucesso!")
-                st.rerun()
+            with col_e:
+                st.success("🟢 ENTRADAS")
+                if not entradas_df.empty:
+                    entradas_df['valor'] = entradas_df['valor'].apply(formatar_real)
+                    st.dataframe(entradas_df[cols_to_show], use_container_width=True, hide_index=True)
+                else:
+                    st.write("Nenhuma entrada registrada.")
 
+            with col_s:
+                st.error("🔴 SAÍDAS")
+                if not saidas_df.empty:
+                    saidas_df['valor'] = saidas_df['valor'].apply(formatar_real)
+                    st.dataframe(saidas_df[cols_to_show], use_container_width=True, hide_index=True)
+                else:
+                    st.write("Nenhuma saída registrada.")
+
+            st.divider()
+
+            # --- GRÁFICO ---
+            st.write("### 📊 Gráfico de Fluxo")
+            chart_data = pd.DataFrame({
+                'Fluxo': ['Entradas', 'Saídas'],
+                'Total': [float(total_e), float(total_s)]
+            })
+            st.bar_chart(chart_data.set_index('Fluxo'))
+
+            with st.expander("⚙️ Gerenciar / Apagar Itens"):
+                opcoes = {f"{r['id']} | {r['mes']} - {r['descricao']}": r['id'] for _, r in df.iterrows()}
+                item = st.selectbox("Selecione o registro:", list(opcoes.keys()))
+                if st.button("Confirmar Exclusão", type="primary"):
+                    c.execute("DELETE FROM gastos WHERE id = ?", (opcoes[item],))
+                    conn.commit()
+                    st.rerun()
         else:
-            st.info(f"Nenhum dado encontrado para: {mes_focado}")
+            st.info(f"⚠️ Nenhum dado encontrado para: {mes_focado}")
 
 conn.close()
