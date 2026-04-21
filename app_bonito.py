@@ -25,7 +25,7 @@ def formatar_real(valor):
 
 st.title("💰 Fluxo de Caixa Pessoal")
 
-aba1, aba2 = st.tabs(["📊 Lançamentos e Análise", "📥 Configurações"])
+aba1, aba2 = st.tabs(["📊 Lançamentos e Tabelas", "📥 Configurações"])
 
 mes_list = ["TODOS OS MESES", "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", 
             "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"]
@@ -60,44 +60,8 @@ with aba1:
             df = pd.read_sql_query("SELECT * FROM gastos WHERE mes = ?", conn, params=(mes_focado,))
         
         if not df.empty:
+            # Separação de dados
             entradas_df = df[df['tipo'] == 'Entrada'].copy()
             saidas_df = df[df['tipo'] == 'Saída'].copy()
             
-            total_e = entradas_df['valor'].sum()
-            total_s = saidas_df['valor'].sum()
-            saldo = total_e - total_s
-            
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Entradas", formatar_real(total_e))
-            m2.metric("Saídas", formatar_real(total_s), delta_color="inverse")
-            m3.metric("Saldo Atual", formatar_real(saldo))
-
-            st.divider()
-
-            # --- TABELAS SEPARADAS ---
-            st.write("### 📑 Detalhes dos Lançamentos")
-            col_e, col_s = st.columns(2)
-            
-            # Define colunas para exibir
-            cols_to_show = ['mes', 'categoria', 'descricao', 'valor'] if mes_focado == "TODOS OS MESES" else ['categoria', 'descricao', 'valor']
-
-            with col_e:
-                st.success("🟢 ENTRADAS")
-                if not entradas_df.empty:
-                    entradas_df['valor'] = entradas_df['valor'].apply(formatar_real)
-                    st.dataframe(entradas_df[cols_to_show], use_container_width=True, hide_index=True)
-                else:
-                    st.write("Nenhuma entrada registrada.")
-
-            with col_s:
-                st.error("🔴 SAÍDAS")
-                if not saidas_df.empty:
-                    saidas_df['valor'] = saidas_df['valor'].apply(formatar_real)
-                    st.dataframe(saidas_df[cols_to_show], use_container_width=True, hide_index=True)
-                else:
-                    st.write("Nenhuma saída registrada.")
-
-            st.divider()
-
-            # --- GRÁFICO ---
-            st.write
+            total_e
