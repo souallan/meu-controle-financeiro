@@ -31,7 +31,7 @@ mes_list = ["TODOS OS MESES", "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO",
             "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"]
 
 with aba1:
-    col_form, col_view = st.columns([1, 2.5])
+    col_form, col_view = st.columns([1, 2.8])
     
     with col_form:
         st.subheader("➕ Novo Registro")
@@ -60,48 +60,44 @@ with aba1:
             df = pd.read_sql_query("SELECT * FROM gastos WHERE mes = ?", conn, params=(mes_focado,))
         
         if not df.empty:
-            entradas = df[df['tipo'] == 'Entrada']['valor'].sum()
-            saidas = df[df['tipo'] == 'Saída']['valor'].sum()
-            saldo = entradas - saidas
+            entradas_df = df[df['tipo'] == 'Entrada'].copy()
+            saidas_df = df[df['tipo'] == 'Saída'].copy()
+            
+            total_e = entradas_df['valor'].sum()
+            total_s = saidas_df['valor'].sum()
+            saldo = total_e - total_s
             
             m1, m2, m3 = st.columns(3)
-            m1.metric("Entradas", formatar_real(entradas))
-            m2.metric("Saídas", formatar_real(saidas), delta_color="inverse")
+            m1.metric("Entradas", formatar_real(total_e))
+            m2.metric("Saídas", formatar_real(total_s), delta_color="inverse")
             m3.metric("Saldo Atual", formatar_real(saldo))
 
             st.divider()
 
-            # --- TABELA (DETALHES) ---
+            # --- TABELAS SEPARADAS ---
             st.write("### 📑 Detalhes dos Lançamentos")
-            df_temp = df.copy()
-            df_temp['valor'] = df_temp['valor'].apply(formatar_real)
+            col_e, col_s = st.columns(2)
             
-            # Definição das colunas de forma segura (sem quebras de linha longas)
-            cols_geral = ['mes', 'tipo', 'categoria', 'descricao', 'valor']
-            cols_mes = ['tipo', 'categoria', 'descricao', 'valor']
-            
-            exibir_cols = cols_geral if mes_focado == "TODOS OS MESES" else cols_mes
-            st.dataframe(df_temp[exibir_cols], use_container_width=True, hide_index=True)
+            # Define colunas para exibir
+            cols_to_show = ['mes', 'categoria', 'descricao', 'valor'] if mes_focado == "TODOS OS MESES" else ['categoria', 'descricao', 'valor']
+
+            with col_e:
+                st.success("🟢 ENTRADAS")
+                if not entradas_df.empty:
+                    entradas_df['valor'] = entradas_df['valor'].apply(formatar_real)
+                    st.dataframe(entradas_df[cols_to_show], use_container_width=True, hide_index=True)
+                else:
+                    st.write("Nenhuma entrada registrada.")
+
+            with col_s:
+                st.error("🔴 SAÍDAS")
+                if not saidas_df.empty:
+                    saidas_df['valor'] = saidas_df['valor'].apply(formatar_real)
+                    st.dataframe(saidas_df[cols_to_show], use_container_width=True, hide_index=True)
+                else:
+                    st.write("Nenhuma saída registrada.")
 
             st.divider()
 
             # --- GRÁFICO ---
-            st.write("### 📊 Gráfico de Fluxo")
-            chart_data = pd.DataFrame({
-                'Fluxo': ['Entradas', 'Saídas'],
-                'Total': [float(entradas), float(saidas)]
-            })
-            st.bar_chart(chart_data.set_index('Fluxo'))
-
-            # --- EXCLUSÃO ---
-            with st.expander("🗑️ Excluir Lançamento"):
-                opcoes = {f"{r['id']} | {r['mes']} - {r['descricao']}": r['id'] for _, r in df.iterrows()}
-                item = st.selectbox("Selecione o registro:", list(opcoes.keys()))
-                if st.button("Confirmar Exclusão", type="primary"):
-                    c.execute("DELETE FROM gastos WHERE id = ?", (opcoes[item],))
-                    conn.commit()
-                    st.rerun()
-        else:
-            st.warning(f"⚠️ Nenhum dado encontrado para: {mes_focado}")
-
-conn.close()
+            st.write
